@@ -7,6 +7,12 @@ import matplotlib.pyplot as plt
 from modelnet10_dataset import ModelNet10Dataset
 from model import PointNetClassifier
 
+def feature_transform_regularizer(trans):
+    d = trans.size(1)
+    I = torch.eye(d, device=trans.device).unsqueeze(0)
+    loss = torch.mean(torch.norm(torch.bmm(trans, trans.transpose(2,1)) - I, dim=(1,2)))
+    return loss
+
 def train():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -14,7 +20,7 @@ def train():
     num_points = 1024
     num_classes = 10
     batch_size = 16
-    epochs = 10
+    epochs = 100
     learning_rate = 0.001
 
     # Dataset
@@ -27,13 +33,13 @@ def train():
     model = PointNetClassifier(num_classes=num_classes).to(device)
     criterion = nn.NLLLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
     train_losses = []
     train_accuracies = []
     test_accuracies = []
 
     for epoch in range(epochs):
-        # Training phase
         model.train()
         total_loss = 0
         total_correct = 0
@@ -44,8 +50,12 @@ def train():
             labels = labels.to(device)
 
             optimizer.zero_grad()
-            outputs = model(points)
+            outputs, trans_feat = model(points)
             loss = criterion(outputs, labels)
+
+            # Add feature transform regularization
+            loss += 0.001 * feature_transform_regularizer(trans_feat)
+
             loss.backward()
             optimizer.step()
 
@@ -59,7 +69,7 @@ def train():
         train_losses.append(avg_loss)
         train_accuracies.append(train_acc)
 
-        # Validation phase
+        # Validation
         model.eval()
         correct = 0
         total = 0
@@ -68,13 +78,15 @@ def train():
                 points = points.to(device)
                 labels = labels.to(device)
 
-                outputs = model(points)
+                outputs, _ = model(points)
                 preds = outputs.max(1)[1]
                 correct += preds.eq(labels).sum().item()
                 total += labels.size(0)
 
         test_acc = correct / total * 100
         test_accuracies.append(test_acc)
+
+        scheduler.step()
 
         print(f"Epoch {epoch+1}/{epochs}, "
               f"Train Loss: {avg_loss:.4f}, "
@@ -84,7 +96,7 @@ def train():
         # Save checkpoint
         torch.save(model.state_dict(), f"pointnet_epoch{epoch+1}.pth")
 
-    # Plot loss/accuracy curves
+    # Plot curves
     plt.figure(figsize=(10,4))
     plt.subplot(1,2,1)
     plt.plot(train_losses, label='Train Loss')

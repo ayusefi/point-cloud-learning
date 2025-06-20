@@ -58,8 +58,9 @@ class ModelNet10Dataset(Dataset):
 
 if __name__ == "__main__":
     # Example usage
-    dataset = ModelNet10Dataset(root_dir='../data/archive/ModelNet10', split='train', num_points=1024)
+    dataset = ModelNet10Dataset(root_dir='data/ModelNet10', split='train', num_points=1024)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+    
 
     for points, labels in dataloader:
         print("Points batch shape:", points.shape)  # Expected: (8, 1024, 3)
