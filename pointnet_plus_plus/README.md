@@ -8,11 +8,24 @@ This repository contains a PyTorch implementation of the PointNet++ architecture
 
 ```mermaid
 graph TD
-    Input[Input Point Cloud<br/>(B × N × 3)] --> SA1[Set Abstraction 1<br/>FPS→512 pts, radius=0.2, nsample=32<br/>MLP: (3 → 64 → 64 → 128)<br/>Output: (B × 512 × 128)]
-    SA1 --> SA2[Set Abstraction 2<br/>FPS→128 pts, radius=0.4, nsample=64<br/>MLP: (128+3 → 128 → 128 → 256)<br/>Output: (B × 128 × 256)]
-    SA2 --> Global[Global Feature<br/>Conv1d: 256 → 512 → 1024<br/>MaxPool over 128 pts<br/>Feature: (B × 1024)]
-    Global --> FC[Classifier Head<br/>FC: 1024 → 512 → 256 → num_classes]<br/>Dropout & BatchNorm
-    FC --> Output[Logits<br/>(B × num_classes)]
+    Input["Input Point Cloud
+(B × N × 3)"] --> SA1["Set Abstraction 1
+FPS→512 pts, radius=0.2, nsample=32
+MLP: (3 → 64 → 64 → 128)
+Output: (B × 512 × 128)"]
+    SA1 --> SA2["Set Abstraction 2
+FPS→128 pts, radius=0.4, nsample=64
+MLP: (128+3 → 128 → 128 → 256)
+Output: (B × 128 × 256)"]
+    SA2 --> Global["Global Feature
+Conv1d: 256 → 512 → 1024
+MaxPool over 128 pts
+Feature: (B × 1024)"]
+    Global --> FC["Classifier Head
+FC: 1024 → 512 → 256 → num_classes
+Dropout & BatchNorm"]
+    FC --> Output["Logits
+(B × num_classes)"]
 ```
 
 1. **Set Abstraction (SA) Module**
