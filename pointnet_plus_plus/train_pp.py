@@ -7,14 +7,6 @@ from modelnet10_dataset import ModelNet10Dataset
 import matplotlib.pyplot as plt
 
 
-def feature_transform_regularizer(trans):
-    """Regularization term to encourage orthogonality of transform matrix."""
-    d = trans.size(1)
-    I = torch.eye(d, device=trans.device).unsqueeze(0)
-    loss = torch.mean(torch.norm(torch.bmm(trans, trans.transpose(2,1)) - I, dim=(1,2)))
-    return loss
-
-
 def train():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -26,7 +18,7 @@ def train():
     epochs = 100
     lr = 0.001
 
-    # Datasets and loaders
+    # Datasets and loaders (no augmentation for baseline)
     train_ds = ModelNet10Dataset('../data/ModelNet10', 'train', num_points, augment=False)
     val_ds   = ModelNet10Dataset('../data/ModelNet10', 'test',  num_points, augment=False)
     test_ds  = ModelNet10Dataset('../data/ModelNet10', 'test',  num_points, augment=False)
@@ -36,8 +28,8 @@ def train():
     test_loader  = DataLoader(test_ds,  batch_size=batch_size, shuffle=False)
 
     # Model, optimizer, loss, scheduler
-    model = PointNetPlusPlus(num_classes=num_classes, input_channels=0, feature_transform=True).to(device)
-    criterion = nn.CrossEntropyLoss()
+    model = PointNetPlusPlus(num_classes=num_classes).to(device)
+    criterion = nn.NLLLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
@@ -51,10 +43,8 @@ def train():
         for points, labels in train_loader:
             points, labels = points.to(device), labels.to(device)
             optimizer.zero_grad()
-            logits, trans_feat = model(points)
+            logits = model(points)
             loss = criterion(logits, labels)
-            # feature transform regularization
-            loss += 0.001 * feature_transform_regularizer(trans_feat)
             loss.backward()
             optimizer.step()
 
@@ -71,7 +61,7 @@ def train():
         with torch.no_grad():
             for points, labels in val_loader:
                 points, labels = points.to(device), labels.to(device)
-                logits, _ = model(points)
+                logits = model(points)
                 preds = logits.argmax(dim=1)
                 val_correct += preds.eq(labels).sum().item()
                 val_total += labels.size(0)
@@ -103,7 +93,8 @@ def train():
     with torch.no_grad():
         for points, labels in test_loader:
             points, labels = points.to(device), labels.to(device)
-            preds = model(points)[0].argmax(dim=1)
+            logits = model(points)
+            preds = logits.argmax(dim=1)
             test_correct += preds.eq(labels).sum().item()
             test_total += labels.size(0)
     test_acc = test_correct / test_total * 100
@@ -134,7 +125,6 @@ def train():
     # Save final model
     torch.save(model.state_dict(), 'baseline_model.pth')
     print("Saved final model: baseline_model.pth")
-
 
 if __name__ == '__main__':
     train()
