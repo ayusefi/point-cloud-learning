@@ -102,9 +102,10 @@ class PointNetSetAbstraction(nn.Module):
 
 
 class PointNetPlusPlus(nn.Module):
-    """Complete PointNet++ for classification."""
-    def __init__(self, num_classes=10, input_channels=0):
+    """Complete PointNet++ for classification, with optional feature transform stub."""
+    def __init__(self, num_classes=10, input_channels=0, feature_transform=False):
         super().__init__()
+        self.feature_transform = feature_transform
         # SA layers
         self.sa1 = PointNetSetAbstraction(512, 0.2, 32, input_channels, [64,64,128])
         self.sa2 = PointNetSetAbstraction(128, 0.4, 64, 128, [128,128,256])
@@ -131,15 +132,18 @@ class PointNetPlusPlus(nn.Module):
         )
 
     def forward(self, xyz, features=None):
-        # xyz: (B,N,3); features: (B,C,N)
-        l1_xyz, l1_feats = self.sa1(xyz, features)    # (B,512,3), (B,128,512)
-        l2_xyz, l2_feats = self.sa2(l1_xyz, l1_feats) # (B,128,3), (B,256,128)
-
+        # Forward through SA layers
+        l1_xyz, l1_feats = self.sa1(xyz, features)
+        l2_xyz, l2_feats = self.sa2(l1_xyz, l1_feats)
         # Global MLP + max-pool
-        x = self.global_mlp(l2_feats)                # (B,1024,128)
-        x = torch.max(x, 2)[0]                       # (B,1024)
-
+        x = self.global_mlp(l2_feats)
+        x = torch.max(x, 2)[0]
         # Classifier
-        x = self.fc_layers(x)                        # (B,num_classes)
-        return x
-
+        logits = self.fc_layers(x)
+        if self.feature_transform:
+            # Stub: return identity transform for regularizer
+            B = xyz.size(0)
+            trans_feat = torch.eye(3, device=xyz.device).unsqueeze(0).repeat(B, 1, 1)
+            return logits, trans_feat
+        else:
+            return logits
