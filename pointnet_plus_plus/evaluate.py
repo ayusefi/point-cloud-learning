@@ -82,6 +82,7 @@ def evaluate(model_path, data_dir, batch_size=16, num_points=1024,
         ax.axis('off')
 
     plt.tight_layout()
+    plt.savefig("evaluated_samples.png")
     plt.show()
 
 if __name__ == '__main__':

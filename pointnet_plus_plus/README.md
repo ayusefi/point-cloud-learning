@@ -29,6 +29,14 @@ Additional data augmentations:
 
 Results will be added here after training concludes, providing a detailed comparison between the baseline, noise-augmented, and improved setups.
 
+## 🖼️ Figures
+
+* Training Curves:
+  ![Training Results](training_curves_baseline.png)
+
+* Evaluated Samples:
+  ![Evaluated Samples](evaluated_samples.png)
+
 ## ⚙️ How to Run
 
 1️⃣ Clone the repository:
@@ -45,14 +53,6 @@ python train_pp.py
 ```
 
 3️⃣ Evaluate the trained model:
-
-```bash
-python evaluate.py --model path/to/model.pth --data path/to/data_dir
-```
-
-## 📊 Visualization
-
-Evaluate and visualize random corrupted test samples:
 
 ```bash
 python evaluate.py --model path/to/model.pth --data path/to/data_dir
