@@ -88,7 +88,7 @@ class ModelNet10Dataset(Dataset):
 
 if __name__ == "__main__":
     # Quick sanity check
-    dataset = ModelNet10Dataset(root_dir='data/ModelNet10',
+    dataset = ModelNet10Dataset(root_dir='../data/ModelNet10',
                                 split='train',
                                 num_points=1024,
                                 augment=True)
@@ -96,4 +96,5 @@ if __name__ == "__main__":
     for pts, labels in loader:
         print("Points batch shape:", pts.shape)   # Expected: (8, 1024, 3)
         print("Labels batch shape:", labels.shape) # Expected: (8,)
+        print("labels:", labels)
         break
