@@ -1,0 +1,12 @@
+{
+  "augmentation": "jitter",
+  "final_test_accuracy": 83.92070484581498,
+  "final_train_accuracy": 98.3433734939759,
+  "final_val_accuracy": 83.03964757709251,
+  "hyperparameters": {
+    "batch_size": 16,
+    "epochs": 100,
+    "learning_rate": 0.001,
+    "num_points": 1024
+  }
+}

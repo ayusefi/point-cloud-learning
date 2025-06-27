@@ -5,23 +5,69 @@ from torch.utils.data import DataLoader
 from model_pp import PointNetPlusPlus
 from modelnet10_dataset import ModelNet10Dataset
 import matplotlib.pyplot as plt
+import argparse
+import os
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train PointNet++ with different augmentation strategies')
+    parser.add_argument('--augmentation', type=str, choices=['none', 'jitter', 'dropout', 'both'], 
+                        default='none', help='Augmentation strategy to use')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs')
+    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('--num_points', type=int, default=1024, help='Number of points per point cloud')
+    parser.add_argument('--data_path', type=str, default='../data/ModelNet10', help='Path to ModelNet10 dataset')
+    parser.add_argument('--save_prefix', type=str, default='', help='Prefix for saved model files')
+    return parser.parse_args()
+
+
+def get_augmentation_config(aug_type):
+    """
+    Returns augmentation configuration based on the specified type.
+    Returns tuple: (use_jitter, use_dropout)
+    """
+    if aug_type == 'none':
+        return False, False
+    elif aug_type == 'jitter':
+        return True, False
+    elif aug_type == 'dropout':
+        return False, True
+    elif aug_type == 'both':
+        return True, True
+    else:
+        raise ValueError(f"Unknown augmentation type: {aug_type}")
 
 
 def train():
+    args = parse_args()
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
+    print(f"Augmentation strategy: {args.augmentation}")
 
     # Hyperparameters
-    num_points = 1024
+    num_points = args.num_points
     num_classes = 10
-    batch_size = 16
-    epochs = 100
-    lr = 0.001
+    batch_size = args.batch_size
+    epochs = args.epochs
+    lr = args.lr
 
-    # Datasets and loaders (no augmentation for baseline)
-    train_ds = ModelNet10Dataset('../data/ModelNet10', 'train', num_points, augment=False)
-    val_ds   = ModelNet10Dataset('../data/ModelNet10', 'test',  num_points, augment=False)
-    test_ds  = ModelNet10Dataset('../data/ModelNet10', 'test',  num_points, augment=False)
+    # Get augmentation configuration
+    use_jitter, use_dropout = get_augmentation_config(args.augmentation)
+    
+    # Create augmentation-specific parameters dict
+    aug_params = {
+        'use_jitter': use_jitter,
+        'use_dropout': use_dropout
+    }
+
+    # Datasets and loaders
+    # Note: Assuming your ModelNet10Dataset can accept augmentation parameters
+    # If not, you'll need to modify the dataset class accordingly
+    train_ds = ModelNet10Dataset(args.data_path, 'train', num_points, augment=args.augmentation != 'none', **aug_params)
+    val_ds   = ModelNet10Dataset(args.data_path, 'test',  num_points, augment=False)
+    test_ds  = ModelNet10Dataset(args.data_path, 'test',  num_points, augment=False)
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, drop_last=True)
     val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False)
@@ -35,6 +81,9 @@ def train():
 
     # Logs
     train_losses, train_accs, val_accs = [], [], []
+
+    # Create experiment name for saving files
+    exp_name = f"{args.save_prefix}{args.augmentation}" if args.save_prefix else args.augmentation
 
     for epoch in range(1, epochs+1):
         # Training
@@ -83,7 +132,7 @@ def train():
 
         # Checkpoint every 10 epochs
         if epoch % 10 == 0:
-            ckpt_name = f"pointnetpp_epoch{epoch}.pth"
+            ckpt_name = f"pointnetpp_{exp_name}_epoch{epoch}.pth"
             torch.save(model.state_dict(), ckpt_name)
             print(f"Saved checkpoint: {ckpt_name}")
 
@@ -107,7 +156,7 @@ def train():
     plt.plot(epochs_range, train_losses, label='Train Loss')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.title('Training Loss')
+    plt.title(f'Training Loss ({args.augmentation})')
     plt.legend()
 
     plt.subplot(1,2,2)
@@ -115,16 +164,37 @@ def train():
     plt.plot(epochs_range, val_accs,   label='Val Acc')
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy (%)')
-    plt.title('Training & Validation Accuracy')
+    plt.title(f'Training & Validation Accuracy ({args.augmentation})')
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig('training_curves.png')
+    plt.savefig(f'training_curves_{exp_name}.png')
     plt.show()
 
     # Save final model
-    torch.save(model.state_dict(), 'baseline_model.pth')
-    print("Saved final model: baseline_model.pth")
+    final_model_name = f'{exp_name}_model.pth'
+    torch.save(model.state_dict(), final_model_name)
+    print(f"Saved final model: {final_model_name}")
+
+    # Save training results summary
+    results_summary = {
+        'augmentation': args.augmentation,
+        'final_test_accuracy': test_acc,
+        'final_train_accuracy': train_accs[-1],
+        'final_val_accuracy': val_accs[-1],
+        'hyperparameters': {
+            'batch_size': batch_size,
+            'epochs': epochs,
+            'learning_rate': lr,
+            'num_points': num_points
+        }
+    }
+    
+    import json
+    with open(f'results_{exp_name}.json', 'w') as f:
+        json.dump(results_summary, f, indent=2)
+    print(f"Saved results summary: results_{exp_name}.json")
+
 
 if __name__ == '__main__':
     train()
